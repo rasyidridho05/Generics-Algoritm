@@ -16,14 +16,13 @@ def calculate_objective(x1, x2):
     Catatan: abs(x2) digunakan untuk menghindari ValueError dari akar kuadrat bernilai negatif.
     """
     try:
-        term1 = math.sin(x1) * math.cos(x2) * math.tan(x1 + x2)
+        term = (math.sin(x1) * math.cos(x2) * math.tan(x1 + x2)) + (0.5 * math.exp(1 - math.sqrt(abs(x2))**2))  
+        
         # Menghindari error akar negatif dengan abs()
-        term2 = 0.5 * math.exp(1 - math.sqrt(abs(x2))**2) 
-        return -(term1 + term2)
+        return -(term)
     except OverflowError:
         # Menangani nilai ekstrem dari tan()
         return float('inf')
-
 
 # 2. Init Population
 def create_chromosome(length):
@@ -66,8 +65,7 @@ def calculate_fitness(chromosome):
     """
     x1, x2 = decode_chromosome(chromosome)
     obj_val = calculate_objective(x1, x2)
-    # Ditambah konstanta untuk menghindari pembagian dengan nol
-    # Jika obj_val sangat negatif, kita bisa menggunakan negasinya sebagai fitness
+
     return -obj_val 
 
 # 5. Pemilihan Parent 
@@ -134,7 +132,7 @@ def run_genetic_algorithm():
         # Potong jika populasi melebihi ukuran (karena nambah 2 per loop)
         population = new_population[:POPULATION_SIZE]
         
-        # Update kromosom terbaik dari generasi ini
+        # Update kromosom terbaik dari generasi ini 
         current_best = max(population, key=lambda x: calculate_fitness(x))
         if calculate_fitness(current_best) > best_fitness:
             best_fitness = calculate_fitness(current_best)
