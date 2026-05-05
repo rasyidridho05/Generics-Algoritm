@@ -1,20 +1,10 @@
-# =============================================================================
-# Sistem Fuzzy Logic untuk Pemilihan 5 Restoran Terbaik di Kota Bandung
-# Mata Kuliah: Kecerdasan Buatan - S1 Rekayasa Perangkat Lunak
-# Semester Genap 2025/2026
-# =============================================================================
-# CATATAN: Program ini TIDAK menggunakan library fuzzy apapun.
-#          Seluruh proses fuzzification, inferensi, dan defuzzification
-#          dibangun dari nol secara manual.
-# =============================================================================
-
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-import math
 
-# =============================================================================
+import matplotlib.pyplot as plt
+import numpy as np
+
 # BAGIAN 1: MEMBACA DATA DARI FILE
-# =============================================================================
 
 def baca_data(nama_file):
     """
@@ -35,9 +25,49 @@ def baca_data(nama_file):
     return data
 
 
-# =============================================================================
 # BAGIAN 2: DESAIN FUNGSI KEANGGOTAAN (MEMBERSHIP FUNCTIONS)
-# =============================================================================
+
+# --------------------------------------------------------------------------------
+# 1. PELAYANAN BURUK (Trapesium Kiri / Bahu Kiri)
+#    - [  1 - 30] : Mutlak Buruk (Derajat = 1.0)
+#    - [ 30 - 50] : Fase Turun (Semakin besar nilai, semakin tidak buruk)
+#    - [ 50 - 100]: Bukan Buruk (Derajat = 0.0)
+
+# 2. PELAYANAN SEDANG (Segitiga Tengah)
+#    - [  1 - 30] : Bukan Sedang (Derajat = 0.0)
+#    - [ 30 - 50] : Fase Naik menuju Sedang
+#    - [ 50 ]     : Titik Puncak Mutlak Sedang (Derajat = 1.0)
+#    - [ 50 - 70] : Fase Turun menjauhi Sedang
+#    - [ 70 - 100]: Bukan Sedang (Derajat = 0.0)
+
+# 3. PELAYANAN BAIK (Trapesium Kanan / Bahu Kanan)
+#    - [  1 - 50] : Bukan Baik (Derajat = 0.0)
+#    - [ 50 - 70] : Fase Naik (Semakin besar nilai, semakin baik)
+#    - [ 70 - 100]: Mutlak Baik (Derajat = 1.0)
+
+# --------------------------------------------------------------------------------
+# 1. HARGA MURAH (Trapesium Kiri / Bahu Kiri)
+#    - [ < 30.000 ] : Mutlak Murah (Derajat = 1.0)
+#    - [30k - 38k ] : Fase Turun (Semakin mahal, kemurahan berkurang)
+#    - [ > 38.000 ] : Bukan Murah (Derajat = 0.0)
+
+# 2. HARGA SEDANG (Segitiga Tengah)
+#    - [ < 30.000 ] : Bukan Sedang (Derajat = 0.0)
+#    - [30k - 38k ] : Fase Naik menuju Sedang
+#    - [ 38.000 ]   : Titik Puncak Mutlak Sedang (Derajat = 1.0)
+#    - [38k - 47k ] : Fase Turun menjauhi Sedang
+#    - [ > 47.000 ] : Bukan Sedang (Derajat = 0.0)
+
+# 3. HARGA MAHAL (Trapesium Kanan / Bahu Kanan)
+#    - [ < 38.000 ] : Bukan Mahal (Derajat = 0.0)
+#    - [38k - 47k ] : Fase Naik (Semakin tinggi, kemahalan bertambah)
+#    - [ > 47.000 ] : Mutlak Mahal (Derajat = 1.0)
+
+# --------------------------------------------------------------------------------
+# 1. TIDAK LAYAK  (Trapesium Kiri): Puncak di [ 0 - 15], Turun di [15 - 25]
+# 2. CUKUP LAYAK  (Segitiga)      : Naik di [15 - 35], Puncak di [35], Turun di [35 - 50]
+# 3. LAYAK        (Segitiga)      : Naik di [40 - 60], Puncak di [60], Turun di [60 - 75]
+# 4. SANGAT LAYAK (Trapesium Kanan): Naik di [65 - 80], Puncak di [80 - 100]
 
 # --- INPUT 1: Kualitas Pelayanan (range: 1 - 100) ---
 # Variabel linguistik: BURUK, SEDANG, BAIK
@@ -83,8 +113,6 @@ def mf_pelayanan_baik(x):
 
 
 # --- INPUT 2: Harga (range: 25000 - 55000) ---
-# Variabel linguistik: MURAH, SEDANG, MAHAL
-# Menggunakan fungsi trapesium dan segitiga
 
 def mf_harga_murah(x):
     """
@@ -125,9 +153,7 @@ def mf_harga_mahal(x):
         return 1.0
 
 
-# =============================================================================
 # BAGIAN 3: FUZZIFIKASI
-# =============================================================================
 
 def fuzzifikasi(pelayanan, harga):
     """
@@ -146,17 +172,15 @@ def fuzzifikasi(pelayanan, harga):
     }
     return hasil
 
-
-# =============================================================================
 # BAGIAN 4: DESAIN ATURAN INFERENSI (RULE BASE)
-# =============================================================================
+
 # Output: KELAYAKAN restoran (skor rekomendasi)
 # Variabel linguistik output: TIDAK_LAYAK, CUKUP_LAYAK, LAYAK, SANGAT_LAYAK
-#
+
 # Logika: Restoran terbaik = pelayanan BAIK + harga MURAH/SEDANG
 #         Pelayanan bagus tapi mahal = cukup layak
 #         Pelayanan buruk = tidak layak
-#
+
 # Tabel Aturan (9 aturan):
 # -----------------------------------------------------------
 # Pelayanan \ Harga | MURAH       | SEDANG      | MAHAL
@@ -210,9 +234,8 @@ def inferensi(fuzz):
     return aktivasi
 
 
-# =============================================================================
 # BAGIAN 5: DEFUZZIFIKASI (Metode Centroid / Center of Area)
-# =============================================================================
+
 # Output KELAYAKAN: range 0 - 100
 # Fungsi keanggotaan output:
 #   TIDAK_LAYAK  : trapesium kiri  [0, 25]     puncak di [0,15], turun ke 25
@@ -299,9 +322,7 @@ def defuzzifikasi(aktivasi, num_points=1000):
     return numerator / denominator
 
 
-# =============================================================================
 # BAGIAN 6: PROSES UTAMA - Hitung skor semua restoran
-# =============================================================================
 
 def hitung_semua_skor(data):
     """
@@ -327,9 +348,7 @@ def hitung_semua_skor(data):
     return hasil
 
 
-# =============================================================================
 # BAGIAN 7: SIMPAN OUTPUT KE FILE EXCEL
-# =============================================================================
 
 def simpan_output(top5, nama_file='peringkat.xlsx'):
     """
@@ -397,9 +416,7 @@ def simpan_output(top5, nama_file='peringkat.xlsx'):
     print(f"\n[OK] File output disimpan: {nama_file}")
 
 
-# =============================================================================
 # BAGIAN 8: TAMPILKAN HASIL DI KONSOL
-# =============================================================================
 
 def tampilkan_hasil(top5):
     """Menampilkan 5 restoran terbaik dalam format tabel di konsol."""
@@ -413,9 +430,7 @@ def tampilkan_hasil(top5):
     print("=" * 70)
 
 
-# =============================================================================
 # MAIN - Titik masuk program
-# =============================================================================
 
 if __name__ == '__main__':
     print("[INFO] Membaca data dari file restoran.xlsx ...")
@@ -425,7 +440,7 @@ if __name__ == '__main__':
     print("[INFO] Menjalankan sistem Fuzzy Logic ...")
     semua_hasil = hitung_semua_skor(data)
 
-    # Ambil 5 terbaik
+    # Ambil 5 output terbaik
     top5 = semua_hasil[:5]
 
     # Tampilkan di konsol
@@ -433,3 +448,83 @@ if __name__ == '__main__':
 
     # Simpan ke file Excel
     simpan_output(top5, 'peringkat.xlsx')
+
+
+
+# Pastikan fungsi-fungsi mf_pelayanan_buruk, dll. sudah ada di atas kode ini
+def tampilkan_grafik_fuzzy():
+    """
+    Fungsi untuk memvisualisasikan kurva/grafik fungsi keanggotaan (Membership Functions)   
+    dari sistem Fuzzy Logic.
+    """
+    # 1. Siapkan sumbu X (domain data) menggunakan numpy
+    x_pelayanan = np.linspace(0, 100, 500)      # Range pelayanan 0 - 100
+    x_harga = np.linspace(20000, 55000, 500)    # Range harga 20k - 55k
+    x_kelayakan = np.linspace(0, 100, 500)      # Range output kelayakan 0 - 100
+
+    # 2. Hitung sumbu Y (derajat keanggotaan) menggunakan list comprehension
+    # --- Grafik Pelayanan ---
+    y_pelayanan_buruk = [mf_pelayanan_buruk(x) for x in x_pelayanan]
+    y_pelayanan_sedang = [mf_pelayanan_sedang(x) for x in x_pelayanan]
+    y_pelayanan_baik = [mf_pelayanan_baik(x) for x in x_pelayanan]
+
+    # --- Grafik Harga ---
+    y_harga_murah = [mf_harga_murah(x) for x in x_harga]
+    y_harga_sedang = [mf_harga_sedang(x) for x in x_harga]
+    y_harga_mahal = [mf_harga_mahal(x) for x in x_harga]
+
+    # --- Grafik Output (Kelayakan) ---
+    y_out_tidak = [mf_output_tidak_layak(x) for x in x_kelayakan]
+    y_out_cukup = [mf_output_cukup_layak(x) for x in x_kelayakan]
+    y_out_layak = [mf_output_layak(x) for x in x_kelayakan]
+    y_out_sangat = [mf_output_sangat_layak(x) for x in x_kelayakan]
+
+    # 3. Buat Canvas/Figure untuk menampung 3 grafik
+    plt.figure(figsize=(15, 12))
+
+    # --- Plot 1: Kualitas Pelayanan ---
+    plt.subplot(3, 1, 1) # (baris, kolom, urutan grafik)
+    plt.plot(x_pelayanan, y_pelayanan_buruk, label='Buruk', color='red', linewidth=2)
+    plt.plot(x_pelayanan, y_pelayanan_sedang, label='Sedang', color='orange', linewidth=2)
+    plt.plot(x_pelayanan, y_pelayanan_baik, label='Baik', color='green', linewidth=2)
+    plt.title("Fungsi Keanggotaan: Kualitas Pelayanan", fontweight='bold')
+    plt.xlabel("Skor Pelayanan")
+    plt.ylabel("Derajat (μ)")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # --- Plot 2: Harga ---
+    plt.subplot(3, 1, 2)
+    plt.plot(x_harga, y_harga_murah, label='Murah', color='green', linewidth=2)
+    plt.plot(x_harga, y_harga_sedang, label='Sedang', color='orange', linewidth=2)
+    plt.plot(x_harga, y_harga_mahal, label='Mahal', color='red', linewidth=2)
+    plt.title("Fungsi Keanggotaan: Harga Makanan", fontweight='bold')
+    plt.xlabel("Harga (Rupiah)")
+    plt.ylabel("Derajat (μ)")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # --- Plot 3: Skor Kelayakan (Output) ---
+    plt.subplot(3, 1, 3)
+    plt.plot(x_kelayakan, y_out_tidak, label='Tidak Layak', color='red', linewidth=2)
+    plt.plot(x_kelayakan, y_out_cukup, label='Cukup Layak', color='orange', linewidth=2)
+    plt.plot(x_kelayakan, y_out_layak, label='Layak', color='blue', linewidth=2)
+    plt.plot(x_kelayakan, y_out_sangat, label='Sangat Layak', color='green', linewidth=2)
+    plt.title("Fungsi Keanggotaan: Skor Kelayakan (Output)", fontweight='bold')
+    plt.xlabel("Skor Output")
+    plt.ylabel("Derajat (μ)")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # Menyesuaikan jarak antar grafik agar tidak bertumpuk
+    plt.tight_layout()
+    
+    # Tampilkan grafik ke layar
+    plt.show()
+
+# Panggil fungsi ini di blok utama Anda
+if __name__ == '__main__':
+    # ... (kode pemanggilan data Anda sebelumnya) ...
+    
+    print("[INFO] Menampilkan grafik fungsi keanggotaan...")
+    tampilkan_grafik_fuzzy()
